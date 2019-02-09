@@ -1,0 +1,111 @@
+import errno
+import numpy as np
+import scipy
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score
+import os
+import matplotlib.pyplot as plt
+import ast
+etas_weights = {}
+
+with open('etas.txt', 'r') as file :
+  filedata = file.read()
+
+filedata = filedata.replace('array(', '')
+filedata = filedata.replace(')', '')
+
+with open('eta.txt', 'w') as file:
+  file.write(filedata)
+
+with open('eta.txt', 'r') as file :
+    etas_weights = ast.literal_eval(file.read())
+
+
+def Test_Point(points,weights):
+
+    prediction_values=[]
+    for i in range(len(points)):
+            Classify = []
+            for key,value in weights.items():
+
+                Weight = value
+                Classify.append(np.dot(Weight[:-1],points[i][:-1])+Weight[-1])
+                maximum=max(Classify)
+            prediction_values.append(Classify.index(maximum))
+    return prediction_values
+
+
+def read_files(file_path, size, bias):
+    os.chdir(file_path)
+    files = os.listdir(file_path)
+    files = sorted(files, key=lambda x: int(os.path.splitext(x)[0]))
+
+    all_data = []
+
+    for file in files:
+        img = scipy.misc.imread(file)
+        type(img)
+        img.shape
+        img = img.reshape(size, )
+        img = np.append(img, bias)
+        all_data.append(img)
+    os.chdir(file_path+"//..")
+
+    return np.array(all_data)
+
+
+test_points = read_files("Test\\", 784, 1)
+validation_points = read_files("Validation\\", 784, 1)
+image_classes= [num for num in range(10)]
+test_true_labels = np.loadtxt('Test Labels.txt')
+validation_true_labels = np.loadtxt('Validation Labels.txt')
+test_confusion_Matrix = []
+try:
+    os.makedirs("Confusion")
+except OSError as e:
+    if e.errno != errno.EEXIST:
+        raise
+try:
+    os.makedirs("Confusion after validation")
+except OSError as e:
+    if e.errno != errno.EEXIST:
+        raise
+for eta,weights in etas_weights.items():
+        test_points_prediction = Test_Point(test_points, weights)
+        test_confusion_Matrix = confusion_matrix(test_true_labels, test_points_prediction)
+
+        image = plt.matshow(test_confusion_Matrix, cmap=plt.get_cmap('YlOrBr'))
+        path = "Confusion/Confusion-"+str(eta)+".png"
+        plt.savefig(path)
+        f = open('Confusion/Confusion-'+str(eta)+'.txt', "a")
+        f.write(str(test_confusion_Matrix))
+dic_of_confusion={}
+dict ={}
+dic_test2={}
+list_of_best_weights=[]
+best_eta_weights=[]
+validation_matches = {}
+for i in range(len(image_classes)):
+    validation_matches = {}
+    validation_confusion_Matrix = []
+    validation_points_prediction = []
+    for eta, weights in etas_weights.items():
+        validation_confusion_Matrix = []
+        validation_points_prediction=[]
+        validation_points_prediction = Test_Point(validation_points, weights)
+        validation_confusion_Matrix = confusion_matrix(validation_true_labels, validation_points_prediction)
+        dic_of_confusion[eta] = validation_confusion_Matrix
+        validation_matches[eta] = validation_confusion_Matrix[i][i]
+        print(validation_matches[eta])
+        print("eta====>"+str(eta))
+    print("Maximum  match for etas = "+str(validation_matches[max(validation_matches, key=validation_matches.get)]))
+    dict[i] = etas_weights[max(validation_matches, key=validation_matches.get)][i]
+last_points_prediction = Test_Point(test_points, dict)
+last_confusion_Matrix = confusion_matrix(test_true_labels, last_points_prediction)
+accuracy = accuracy_score(test_true_labels,last_points_prediction)
+print("accurcy of the test after validation = "+str(accuracy))
+image = plt.matshow(last_confusion_Matrix, cmap=plt.get_cmap('YlOrBr'))
+last_path = "Confusion after validation/Confusion-last.png"
+plt.savefig(last_path)
+f = open('Confusion after validation/Confusion-last.txt', "a")
+f.write(str(last_confusion_Matrix))
