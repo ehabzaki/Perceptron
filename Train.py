@@ -1,5 +1,3 @@
-
-
 import os
 from scipy import misc
 import numpy as np
